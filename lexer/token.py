@@ -1,0 +1,130 @@
+from util.util import Representable
+
+
+class JavaToken(Representable):
+    def __init__(self, value, position=None, javadoc=None):
+        self.value = value
+        self.position = position
+        self.javadoc = javadoc
+
+
+class EndOfInput(JavaToken):
+    pass
+
+
+class Keyword(JavaToken):
+    VALUES = {'abstract', 'assert', 'boolean', 'break', 'byte', 'case', 'catch', 'char', 'class', 'const', 'continue',
+              'default', 'do', 'double', 'else', 'enum', 'extends', 'final', 'finally', 'float', 'for', 'goto', 'if',
+              'implements', 'import', 'instanceof', 'int', 'interface', 'long', 'native', 'new', 'package', 'private',
+              'protected', 'public', 'return', 'short', 'static', 'strictfp', 'super', 'switch', 'synchronized', 'this',
+              'throw', 'throws', 'transient', 'try', 'void', 'volatile', 'while'}
+
+
+class Modifier(Keyword):
+    VALUES = {'abstract', 'default', 'final', 'native', 'private', 'protected', 'public', 'static', 'strictfp',
+              'synchronized', 'transient', 'volatile'}
+
+
+class BasicType(Keyword):
+    VALUES = {'boolean', 'byte', 'char', 'double', 'float', 'int', 'long', 'short'}
+
+
+class Literal(JavaToken):
+    pass
+
+
+class Integer(Literal):
+    pass
+
+
+class DecimalInteger(Literal):
+    pass
+
+
+class OctalInteger(Integer):
+    pass
+
+
+class BinaryInteger(Integer):
+    pass
+
+
+class HexInteger(Integer):
+    pass
+
+
+class FloatingPoint(Literal):
+    pass
+
+
+class DecimalFloatingPoint(FloatingPoint):
+    pass
+
+
+class HexFloatingPoint(FloatingPoint):
+    pass
+
+
+class Boolean(Literal):
+    VALUES = {"true", "false"}
+
+
+class Character(Literal):
+    pass
+
+
+class String(Literal):
+    pass
+
+
+class Null(Literal):
+    pass
+
+
+class Separator(JavaToken):
+    VALUES = {'(', ')', '{', '}', '[', ']', ';', ',', '.'}
+
+
+class Operator(JavaToken):
+    MAX_LEN = 4
+    VALUES = {'>>>=', '>>=', '<<=', '%=', '^=', '|=', '&=', '/=', '*=', '-=', '+=', '<<', '--', '++', '||', '&&', '!=',
+              '>=', '<=', '==', '%', '^', '|', '&', '/', '*', '-', '+', ':', '?', '~', '!', '<', '>', '=', '...', '->',
+              '::'}
+
+    # '>>>' and '>>' are excluded so that >> becomes two tokens and >>> becomes
+    # three. This is done because we can not distinguish the operators >> and
+    # >>> from the closing of multipel type parameter/argument lists when
+    # lexing. The job of potentially recombining these symbols is left to the
+    # parser
+
+    INFIX = {'||', '&&', '|', '^', '&', '==', '!=', '<', '>', '<=', '>=', '<<', '>>', '>>>', '+', '-', '*', '/', '%'}
+
+    PREFIX = {'++', '--', '!', '~', '+', '-'}
+
+    POSTFIX = {'++', '--'}
+
+    ASSIGNMENT = {'=', '+=', '-=', '*=', '/=', '&=', '|=', '^=', '%=', '<<=', '>>=', '>>>='}
+
+    LAMBDA = {'->'}
+
+    METHOD_REFERENCE = {'::'}
+
+    def is_infix(self):
+        return self.value in self.INFIX
+
+    def is_prefix(self):
+        return self.value in self.PREFIX
+
+    def is_postfix(self):
+        return self.value in self.POSTFIX
+
+    def is_assignment(self):
+        return self.value in self.ASSIGNMENT
+
+
+class Annotation(JavaToken):
+    pass
+
+
+class Identifier(JavaToken):
+    pass
