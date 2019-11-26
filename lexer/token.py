@@ -1,35 +1,42 @@
 from util.util import Representable
 
 
-class JavaToken(Representable):
-    def __init__(self, value, position=None, javadoc=None):
+class Token(Representable):
+    def __init__(self, value, position=None):
         self.value = value
         self.position = position
-        self.javadoc = javadoc
 
 
-class EndOfInput(JavaToken):
+class Whitespace(Token):
     pass
 
 
-class Keyword(JavaToken):
-    VALUES = {'abstract', 'assert', 'boolean', 'break', 'byte', 'case', 'catch', 'char', 'class', 'const', 'continue',
+class Comment(Token):
+    pass
+
+
+class EndOfInput(Token):
+    pass
+
+
+class Keyword(Token):
+    VALUES = ('abstract', 'assert', 'boolean', 'break', 'byte', 'case', 'catch', 'char', 'class', 'const', 'continue',
               'default', 'do', 'double', 'else', 'enum', 'extends', 'final', 'finally', 'float', 'for', 'goto', 'if',
               'implements', 'import', 'instanceof', 'int', 'interface', 'long', 'native', 'new', 'package', 'private',
               'protected', 'public', 'return', 'short', 'static', 'strictfp', 'super', 'switch', 'synchronized', 'this',
-              'throw', 'throws', 'transient', 'try', 'void', 'volatile', 'while'}
+              'throw', 'throws', 'transient', 'try', 'void', 'volatile', 'while')
 
 
 class Modifier(Keyword):
-    VALUES = {'abstract', 'default', 'final', 'native', 'private', 'protected', 'public', 'static', 'strictfp',
-              'synchronized', 'transient', 'volatile'}
+    VALUES = ('abstract', 'default', 'final', 'native', 'private', 'protected', 'public', 'static', 'strictfp',
+              'synchronized', 'transient', 'volatile')
 
 
 class BasicType(Keyword):
-    VALUES = {'boolean', 'byte', 'char', 'double', 'float', 'int', 'long', 'short'}
+    VALUES = ('boolean', 'byte', 'char', 'double', 'float', 'int', 'long', 'short')
 
 
-class Literal(JavaToken):
+class Literal(Token):
     pass
 
 
@@ -66,7 +73,7 @@ class HexFloatingPoint(FloatingPoint):
 
 
 class Boolean(Literal):
-    VALUES = {"true", "false"}
+    VALUES = ('true', 'false')
 
 
 class Character(Literal):
@@ -81,11 +88,11 @@ class Null(Literal):
     pass
 
 
-class Separator(JavaToken):
-    VALUES = {'(', ')', '{', '}', '[', ']', ';', ',', '.'}
+class Separator(Token):
+    VALUES = ('(', ')', '{', '}', '[', ']', ';', ',', '.')
 
 
-class Operator(JavaToken):
+class Operator(Token):
     MAX_LEN = 4
     VALUES = {'>>>=', '>>=', '<<=', '%=', '^=', '|=', '&=', '/=', '*=', '-=', '+=', '<<', '--', '++', '||', '&&', '!=',
               '>=', '<=', '==', '%', '^', '|', '&', '/', '*', '-', '+', ':', '?', '~', '!', '<', '>', '=', '...', '->',
@@ -97,17 +104,17 @@ class Operator(JavaToken):
     # lexing. The job of potentially recombining these symbols is left to the
     # parser
 
-    INFIX = {'||', '&&', '|', '^', '&', '==', '!=', '<', '>', '<=', '>=', '<<', '>>', '>>>', '+', '-', '*', '/', '%'}
+    INFIX = ('||', '&&', '|', '^', '&', '==', '!=', '<', '>', '<=', '>=', '<<', '>>', '>>>', '+', '-', '*', '/', '%')
 
-    PREFIX = {'++', '--', '!', '~', '+', '-'}
+    PREFIX = ('++', '--', '!', '~', '+', '-')
 
-    POSTFIX = {'++', '--'}
+    POSTFIX = ('++', '--')
 
-    ASSIGNMENT = {'=', '+=', '-=', '*=', '/=', '&=', '|=', '^=', '%=', '<<=', '>>=', '>>>='}
+    ASSIGNMENT = ('=', '+=', '-=', '*=', '/=', '&=', '|=', '^=', '%=', '<<=', '>>=', '>>>=')
 
-    LAMBDA = {'->'}
+    LAMBDA = ('->',)
 
-    METHOD_REFERENCE = {'::'}
+    METHOD_REFERENCE = ('::',)
 
     def is_infix(self):
         return self.value in self.INFIX
@@ -122,9 +129,9 @@ class Operator(JavaToken):
         return self.value in self.ASSIGNMENT
 
 
-class Annotation(JavaToken):
+class Annotation(Token):
     pass
 
 
-class Identifier(JavaToken):
+class Identifier(Token):
     pass

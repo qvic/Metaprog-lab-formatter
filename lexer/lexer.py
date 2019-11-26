@@ -1,27 +1,24 @@
 import re
-import unicodedata
 from collections import namedtuple
+
 from .token import *
-
-
-class LexerError(Exception):
-    pass
-
 
 Position = namedtuple('Position', ['line', 'column'])
 
 
-class JavaTokenizer(object):
-    IDENT_START_CATEGORIES = {'Lu', 'Ll', 'Lt', 'Lm', 'Lo', 'Nl', 'Pc', 'Sc'}
+class LexerError(Exception):
 
-    IDENT_PART_CATEGORIES = {'Lu', 'Ll', 'Lt', 'Lm', 'Lo', 'Mc', 'Mn', 'Nd', 'Nl', 'Pc', 'Sc'}
+    def __init__(self, message: str):
+        super().__init__(message)
 
-    def __init__(self, data: str, ignore_errors=False):
-        self.data = data
-        self.ignore_errors = ignore_errors
+
+class Lexer:
+    whitespace_pattern = re.compile(r'[^\n\S]+')
+
+    def __init__(self, source: str):
+        self.source = source
         self.errors = []
 
-        # Rows and columns both start at 1
         self.current_line = 1
         self.start_of_line = -1
 
@@ -30,11 +27,7 @@ class JavaTokenizer(object):
         for v in Operator.VALUES:
             self.operators[len(v) - 1].add(v)
 
-        self.whitespace_consumer = re.compile(r'[^\s]')
-
-        self.javadoc = None
-
-        self.length = len(self.data)
+        self.length = len(self.source)
         self.i = 0
         self.j = 0
 
@@ -42,25 +35,107 @@ class JavaTokenizer(object):
         self.i = 0
         self.j = 0
 
-    def consume_whitespace(self):
-        match = self.whitespace_consumer.search(self.data, self.i + 1)
+    @property
+    def tokens(self):
+        self.reset()
+
+        length = len(self.source)
+        while self.i < length:
+
+            current_character = self.source[self.i]
+            lookahead = None
+            startswith = current_character
+
+            if self.i + 1 < length:
+                lookahead = self.source[self.i + 1]
+                startswith = current_character + lookahead
+
+            if current_character == '\n':
+                self.i += 1
+                self.start_of_line = self.i
+                self.current_line += 1
+                continue
+
+            elif current_character.isspace():
+                token_type = Whitespace
+                self.read_whitespace()
+
+            elif startswith in ("//", "/*"):
+                token_type = Comment
+                comment = self.read_comment()
+
+            elif startswith == '..' and self.try_operator():
+                token_type = Operator
+
+            elif current_character == '@':
+                token_type = Annotation
+                self.j = self.i + 1
+
+            elif current_character == '.' and lookahead and lookahead.isdigit():
+                token_type = self.read_decimal_float_or_integer()
+
+            elif self.try_separator():
+                token_type = Separator
+
+            elif current_character in ("'", '"'):
+                token_type = String
+                self.read_string()
+
+            elif current_character in '0123456789':
+                token_type = self.read_integer_or_float(current_character, lookahead)
+
+            elif self.is_java_identifier_start(current_character):
+                token_type = self.read_identifier()
+
+            elif self.try_operator():
+                token_type = Operator
+
+            else:
+                self.error('Could not process token', current_character)
+                self.i = self.i + 1
+                continue
+
+            position = Position(self.current_line, self.i - self.start_of_line)
+            self.current_line += self.source.count('\n', self.i, self.j)
+
+            token = token_type(self.source[self.i:self.j], position)
+            yield token
+
+            self.i = self.j
+
+    def error(self, message, char=None):
+        # Provide additional information in the errors message
+        line_start = self.source.rfind('\n', 0, self.i) + 1
+        line_end = self.source.find('\n', self.i)
+        line = self.source[line_start:line_end].strip()
+
+        line_number = self.current_line
+
+        if not char:
+            char = self.source[self.j]
+
+        message = '{0} at "{1}", line {2}: {3}'.format(message, char, line_number, line)
+        error = LexerError(message)
+        self.errors.append(error)
+
+    def read_whitespace(self):
+        match = self.whitespace_pattern.search(self.source, self.i)
 
         if not match:
-            self.i = self.length
             return
 
-        i = match.start()
+        i = match.end()
 
-        start_of_line = self.data.rfind('\n', self.i, i)
+        start_of_line = self.source.rfind('\n', self.i, i)
 
         if start_of_line != -1:
             self.start_of_line = start_of_line
-            self.current_line += self.data.count('\n', self.i, i)
+            self.current_line += self.source.count('\n', self.i, i)
 
-        self.i = i
+        self.j = i
 
     def read_string(self):
-        delim = self.data[self.i]
+        delim = self.source[self.i]
 
         state = 0
         j = self.i + 1
@@ -72,36 +147,36 @@ class JavaTokenizer(object):
                 break
 
             if state == 0:
-                if self.data[j] == '\\':
+                if self.source[j] == '\\':
                     state = 1
-                elif self.data[j] == delim:
+                elif self.source[j] == delim:
                     break
 
             elif state == 1:
-                if self.data[j] in 'btnfru"\'\\':
+                if self.source[j] in 'btnfru"\'\\':
                     state = 0
-                elif self.data[j] in '0123':
+                elif self.source[j] in '0123':
                     state = 2
-                elif self.data[j] in '01234567':
+                elif self.source[j] in '01234567':
                     state = 3
                 else:
-                    self.error('Illegal escape character', self.data[j])
+                    self.error('Illegal escape character', self.source[j])
 
             elif state == 2:
                 # Possibly long octal
-                if self.data[j] in '01234567':
+                if self.source[j] in '01234567':
                     state = 3
-                elif self.data[j] == '\\':
+                elif self.source[j] == '\\':
                     state = 1
-                elif self.data[j] == delim:
+                elif self.source[j] == delim:
                     break
 
             elif state == 3:
                 state = 0
 
-                if self.data[j] == '\\':
+                if self.source[j] == '\\':
                     state = 1
-                elif self.data[j] == delim:
+                elif self.source[j] == delim:
                     break
 
             j += 1
@@ -110,18 +185,18 @@ class JavaTokenizer(object):
 
     def try_operator(self):
         for l in range(min(self.length - self.i, Operator.MAX_LEN), 0, -1):
-            if self.data[self.i:self.i + l] in self.operators[l - 1]:
+            if self.source[self.i:self.i + l] in self.operators[l - 1]:
                 self.j = self.i + l
                 return True
         return False
 
     def read_comment(self):
-        if self.data[self.i + 1] == '/':
+        if self.source[self.i + 1] == '/':
             terminator, accept_eof = '\n', True
         else:
             terminator, accept_eof = '*/', False
 
-        i = self.data.find(terminator, self.i + 2)
+        i = self.source.find(terminator, self.i + 2)
 
         if i != -1:
             i += len(terminator)
@@ -129,18 +204,14 @@ class JavaTokenizer(object):
             i = self.length
         else:
             self.error('Unterminated block comment')
-            partial_comment = self.data[self.i:]
+            partial_comment = self.source[self.i:]
             self.i = self.length
             return partial_comment
 
-        comment = self.data[self.i:i]
-        start_of_line = self.data.rfind('\n', self.i, i)
+        comment = self.source[self.i:i]
 
-        if start_of_line != -1:
-            self.start_of_line = start_of_line
-            self.current_line += self.data.count('\n', self.i, i)
-
-        self.i = i
+        self.start_of_line = self.i
+        self.j = i
 
         return comment
 
@@ -150,23 +221,23 @@ class JavaTokenizer(object):
 
         self.read_decimal_integer()
 
-        if self.j >= len(self.data) or self.data[self.j] not in '.eEfFdD':
+        if self.j >= len(self.source) or self.source[self.j] not in '.eEfFdD':
             return DecimalInteger
 
-        if self.data[self.j] == '.':
+        if self.source[self.j] == '.':
             self.i = self.j + 1
             self.read_decimal_integer()
 
-        if self.j < len(self.data) and self.data[self.j] in 'eE':
+        if self.j < len(self.source) and self.source[self.j] in 'eE':
             self.j = self.j + 1
 
-            if self.j < len(self.data) and self.data[self.j] in '-+':
+            if self.j < len(self.source) and self.source[self.j] in '-+':
                 self.j = self.j + 1
 
             self.i = self.j
             self.read_decimal_integer()
 
-        if self.j < len(self.data) and self.data[self.j] in 'fFdD':
+        if self.j < len(self.source) and self.source[self.j] in 'fFdD':
             self.j = self.j + 1
 
         self.i = orig_i
@@ -178,25 +249,25 @@ class JavaTokenizer(object):
 
         self.read_hex_integer()
 
-        if self.j >= len(self.data) or self.data[self.j] not in '.pP':
+        if self.j >= len(self.source) or self.source[self.j] not in '.pP':
             return HexInteger
 
-        if self.data[self.j] == '.':
+        if self.source[self.j] == '.':
             self.j = self.j + 1
             self.read_digits('0123456789abcdefABCDEF')
 
-        if self.j < len(self.data) and self.data[self.j] in 'pP':
+        if self.j < len(self.source) and self.source[self.j] in 'pP':
             self.j = self.j + 1
         else:
             self.error('Invalid hex float literal')
 
-        if self.j < len(self.data) and self.data[self.j] in '-+':
+        if self.j < len(self.source) and self.source[self.j] in '-+':
             self.j = self.j + 1
 
         self.i = self.j
         self.read_decimal_integer()
 
-        if self.j < len(self.data) and self.data[self.j] in 'fFdD':
+        if self.j < len(self.source) and self.source[self.j] in 'fFdD':
             self.j = self.j + 1
 
         self.i = orig_i
@@ -206,8 +277,8 @@ class JavaTokenizer(object):
         tmp_i = 0
         c = None
 
-        while self.j + tmp_i < len(self.data):
-            c = self.data[self.j + tmp_i]
+        while self.j + tmp_i < len(self.source):
+            c = self.source[self.j + tmp_i]
 
             if c in digits:
                 self.j += 1 + tmp_i
@@ -249,21 +320,21 @@ class JavaTokenizer(object):
             return self.read_decimal_float_or_integer()
 
     def try_separator(self):
-        if self.data[self.i] in Separator.VALUES:
+        if self.source[self.i] in Separator.VALUES:
             self.j = self.i + 1
             return True
         return False
 
-    def is_java_identifier_start(self, c):
-        return unicodedata.category(c) in self.IDENT_START_CATEGORIES
+    def is_java_identifier_start(self, c: str):
+        return c.isalpha()
 
     def read_identifier(self):
         self.j = self.i + 1
 
-        while self.j < len(self.data) and unicodedata.category(self.data[self.j]) in self.IDENT_PART_CATEGORIES:
+        while self.j < len(self.source) and self.source[self.j].isalnum():
             self.j += 1
 
-        ident = self.data[self.i:self.j]
+        ident = self.source[self.i:self.j]
         if ident in Keyword.VALUES:
             token_type = Keyword
 
@@ -280,95 +351,3 @@ class JavaTokenizer(object):
             token_type = Identifier
 
         return token_type
-
-    def tokenize(self):
-        self.reset()
-
-        length = len(self.data)
-        while self.i < length:
-            # token_type = None
-
-            c = self.data[self.i]
-            c_next = None
-            startswith = c
-
-            if self.i + 1 < length:
-                c_next = self.data[self.i + 1]
-                startswith = c + c_next
-
-            if c.isspace():
-                self.consume_whitespace()
-                continue
-
-            elif startswith in ("//", "/*"):
-                comment = self.read_comment()
-                if comment.startswith("/**"):
-                    self.javadoc = comment
-                continue
-
-            elif startswith == '..' and self.try_operator():
-                # Ensure we don't mistake a '...' operator as a sequence of
-                # three '.' separators. This is done as an optimization instead
-                # of moving try_operator higher in the chain because operators
-                # aren't as common and try_operator is expensive
-                token_type = Operator
-
-            elif c == '@':
-                token_type = Annotation
-                self.j = self.i + 1
-
-            elif c == '.' and c_next and c_next.isdigit():
-                token_type = self.read_decimal_float_or_integer()
-
-            elif self.try_separator():
-                token_type = Separator
-
-            elif c in ("'", '"'):
-                token_type = String
-                self.read_string()
-
-            elif c in '0123456789':
-                token_type = self.read_integer_or_float(c, c_next)
-
-            elif self.is_java_identifier_start(c):
-                token_type = self.read_identifier()
-
-            elif self.try_operator():
-                token_type = Operator
-
-            else:
-                self.error('Could not process token', c)
-                self.i = self.i + 1
-                continue
-
-            position = Position(self.current_line, self.i - self.start_of_line)
-            token = token_type(self.data[self.i:self.j], position, self.javadoc)
-            yield token
-
-            if self.javadoc:
-                self.javadoc = None
-
-            self.i = self.j
-
-    def error(self, message, char=None):
-        # Provide additional information in the errors message
-        line_start = self.data.rfind('\n', 0, self.i) + 1
-        line_end = self.data.find('\n', self.i)
-        line = self.data[line_start:line_end].strip()
-
-        line_number = self.current_line
-
-        if not char:
-            char = self.data[self.j]
-
-        message = u'%s at "%s", line %s: %s' % (message, char, line_number, line)
-        error = LexerError(message)
-        self.errors.append(error)
-
-        if not self.ignore_errors:
-            raise error
-
-
-def tokenize(code: str, ignore_errors=False):
-    tokenizer = JavaTokenizer(code, ignore_errors)
-    return tokenizer.tokenize()
