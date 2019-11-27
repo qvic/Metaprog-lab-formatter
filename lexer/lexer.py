@@ -51,10 +51,10 @@ class Lexer:
                 startswith = current_character + lookahead
 
             if current_character == '\n':
-                self.i += 1
+                token_type = LineBreak
+                self.j = self.i + 1
                 self.start_of_line = self.i
-                self.current_line += 1
-                continue
+                # self.current_line += 1
 
             elif current_character.isspace():
                 token_type = Whitespace
@@ -62,7 +62,7 @@ class Lexer:
 
             elif startswith in ("//", "/*"):
                 token_type = Comment
-                comment = self.read_comment()
+                self.read_comment()
 
             elif startswith == '..' and self.try_operator():
                 token_type = Operator
@@ -204,16 +204,11 @@ class Lexer:
             i = self.length
         else:
             self.error('Unterminated block comment')
-            partial_comment = self.source[self.i:]
-            self.i = self.length
-            return partial_comment
-
-        comment = self.source[self.i:i]
+            self.j = self.length
+            return
 
         self.start_of_line = self.i
         self.j = i
-
-        return comment
 
     def read_decimal_float_or_integer(self):
         orig_i = self.i

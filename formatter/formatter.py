@@ -1,65 +1,122 @@
-from typing import Optional
+from typing import List
 
 from lexer.token import *
 from util.util import Properties
 
 
+class TokenUtils:
+
+    @staticmethod
+    def has_before(i, type, tokens):
+        if not 0 <= i < len(tokens):
+            raise ValueError('Token at {0} does not exist'.format(i))
+
+        if i < 1:
+            raise ValueError('Nothing before {0}'.format(i))
+
+        if isinstance(tokens[i - 1], type):
+            return True
+
+        return False
+
+    @staticmethod
+    def has_after(i, type, tokens):
+        if not 0 <= i < len(tokens):
+            raise ValueError('Token at {0} does not exist'.format(i))
+
+        if i >= len(tokens) - 1:
+            raise ValueError('Nothing after {0}'.format(i))
+
+        if isinstance(tokens[i + 1], type):
+            return True
+
+        return False
+
+    @staticmethod
+    def add_before_if_not_present(tokens, i, *tokens_to_add):
+        s = 0
+        for token_to_add in reversed(tokens_to_add):
+            if i > 0 and type(tokens[i - 1]) is type(token_to_add):
+                tokens[i - 1] = token_to_add
+                i -= 1
+            else:
+                tokens.insert(i, token_to_add)
+                s += 1
+        return s
+
+    @staticmethod
+    def add_after_if_not_present(tokens, i, *tokens_to_add):
+        for token_to_add in tokens_to_add:
+            if i < len(tokens) - 1 and type(tokens[i + 1]) is type(token_to_add):
+                tokens[i + 1] = token_to_add
+                i += 1
+            else:
+                tokens.insert(i + 1, token_to_add)
+
+    @staticmethod
+    def is_any_line_start(token):
+        types = (Literal, Keyword, Identifier)
+
+        return isinstance(token, types)
+
+    @staticmethod
+    def format_comment(token, indent) -> Comment:
+        result = []
+        shift = indent - token.position.column
+
+        split = token.value.split('\n')
+        result.append(split[0])
+        for line in split[1:]:
+            result.append(line.rjust(len(line) + shift))
+
+        return Comment('\n'.join(result))
+
+
 class Formatter:
 
     @staticmethod
-    def reformat_tokens(tokens, p: Properties):
+    def format_tokens(tokens, p: Properties) -> str:
+        formatters = (
+            Formatter.curly_braces_formatter,
+        )
+
+        for f in formatters:
+            tokens = f(tokens, p)
+
+        return ''.join(token.value for token in tokens)
+
+    @staticmethod
+    def curly_braces_formatter(tokens: List[Token], p: Properties) -> List[Token]:
         indent = 0
-        closed_block = False
-        ident_last = False
+        i = 0
+        skip_to_line_break = False
 
-        output = list()
-
-        for token in tokens:
-            if closed_block:
-                closed_block = False
-                indent -= p.indent
-
-                output.append('\n')
-                output.append(' ' * indent)
-                output.append('}')
-
-                if isinstance(token, (Literal, Keyword, Identifier)):
-                    output.append('\n')
-                    output.append(' ' * indent)
+        while i < len(tokens):
+            token = tokens[i]
 
             if token.value == '{':
                 indent += p.indent
-                output.append(' {\n')
-                output.append(' ' * indent)
+                TokenUtils.add_after_if_not_present(tokens, i, LineBreak('\n'))
 
             elif token.value == '}':
-                closed_block = True
+                indent = max(indent - p.indent, 0)
+                i += TokenUtils.add_before_if_not_present(tokens, i, LineBreak('\n'), Whitespace(' ' * indent))
 
-            elif token.value == ',':
-                output.append(', ')
+            elif skip_to_line_break:
+                if token.value == '\n':
+                    skip_to_line_break = False
 
-            elif isinstance(token, (Literal, Keyword, Identifier)):
-                if ident_last:
-                    # If the last token was a literla/keyword/identifer put a space in between
-                    output.append(' ')
-                ident_last = True
-                output.append(token.value)
+            elif TokenUtils.is_any_line_start(token):
+                skip_to_line_break = True
+                i += TokenUtils.add_before_if_not_present(tokens, i, Whitespace(' ' * indent))
 
-            elif isinstance(token, Operator):
-                output.append(' ' + token.value + ' ')
+            elif not p.preserve_comment_indent and isinstance(token, Comment):
+                tokens[i] = TokenUtils.format_comment(token, indent)
+                i += TokenUtils.add_before_if_not_present(tokens, i, Whitespace(' ' * indent))
 
-            elif token.value == ';':
-                output.append(';\n')
-                output.append(' ' * indent)
+                if p.line_break_after_comment:
+                    TokenUtils.add_after_if_not_present(tokens, i, LineBreak('\n'))
 
-            else:
-                output.append(token.value)
+            i += 1
 
-            ident_last = isinstance(token, (Literal, Keyword, Identifier))
-
-        if closed_block:
-            output.append('\n}')
-
-        output.append('\n')
-
-        return ''.join(output)
+        return tokens

@@ -2,12 +2,23 @@ from util.util import Representable
 
 
 class Token(Representable):
+    __slots__ = ('value', 'position')
+
     def __init__(self, value, position=None):
         self.value = value
         self.position = position
 
+    def __eq__(self, other: object) -> bool:
+        if type(other) is type(self):
+            return self.__dict__ == other.__dict__
+        return False
+
 
 class Whitespace(Token):
+    pass
+
+
+class LineBreak(Token):
     pass
 
 

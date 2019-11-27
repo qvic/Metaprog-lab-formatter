@@ -44,9 +44,10 @@ class Properties(Representable):
 
     @staticmethod
     def _load_properties(file, separator: str, comment_char: str, type_separator=':'):
-        types = {
+        convertors = {
             'int': int,
-            'float': float
+            'float': float,
+            'bool': lambda s: s.lower() == 'true',
         }
 
         properties = {}
@@ -57,11 +58,11 @@ class Properties(Representable):
                 key = key_value[0].strip()
                 splitted_key = key.split(type_separator)
 
-                value_type = str
+                value_convertor = str
                 if len(splitted_key) > 1:
-                    value_type = types[splitted_key[-1]]
+                    value_convertor = convertors[splitted_key[-1]]
 
-                value = value_type(separator.join(key_value[1:]).strip().strip('"'))
+                value = value_convertor(separator.join(key_value[1:]).strip().strip('"'))
                 properties[type_separator.join(splitted_key[:-1])] = value
 
         return properties
