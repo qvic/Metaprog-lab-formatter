@@ -2,7 +2,6 @@ from util.util import Representable
 
 
 class Token(Representable):
-    __slots__ = ('value', 'position')
 
     def __init__(self, value, position=None):
         self.value = value

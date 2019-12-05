@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from formatter.formatter import TokenUtils
+from formatter.util import TokenUtils
 from lexer.token import *
 
 
@@ -25,11 +25,11 @@ class TestTokenUtils(TestCase):
     def test_add_before_if_not_present(self):
         tokens = [LineBreak('\n'), Whitespace(' '), Keyword('a')]
 
-        s = TokenUtils.add_before_if_not_present(tokens, 2, Whitespace(''), LineBreak('\n'))
+        s = TokenUtils.add_or_replace_before(tokens, 2, Whitespace(''), LineBreak('\n'))
         self.assertListEqual(tokens, [LineBreak('\n'), Whitespace(''), LineBreak('\n'), Keyword('a')])
 
     def test_add_after_if_not_present(self):
         tokens = [LineBreak('\n'), Whitespace(' '), Keyword('a')]
 
-        TokenUtils.add_after_if_not_present(tokens, 2, LineBreak('\n'))
+        TokenUtils.add_or_replace_after(tokens, 2, LineBreak('\n'))
         self.assertListEqual(tokens, [LineBreak('\n'), Whitespace(' '), Keyword('a'), LineBreak('\n')])
