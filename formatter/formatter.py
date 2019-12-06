@@ -10,8 +10,12 @@ class Formatter:
     @staticmethod
     def format_tokens(tokens, p: Properties) -> str:
         formatters = (
-            Formatter.line_break_after_semicolon,
+            Formatter.clean_spaces,
+            Formatter.replace_multiple_spaces,
+            Formatter.spaces_near_operators,
+            Formatter.space_after_comma,
             Formatter.split_long_lines,
+            Formatter.line_break_after_semicolon,
             Formatter.curly_braces_formatter,
         )
 
@@ -101,25 +105,118 @@ class Formatter:
         return tokens
 
     @staticmethod
+    def space_after_comma(tokens: List[Token], p: Properties) -> List[Token]:
+
+        if not p.space_after_comma:
+            return tokens
+
+        i = 0
+        while i < len(tokens):
+            token = tokens[i]
+
+            if token.value == ',':
+                TokenUtils.add_or_replace_after(tokens, i, Whitespace(' '))
+
+            i += 1
+
+        return tokens
+
+    @staticmethod
+    def replace_multiple_spaces(tokens: List[Token], p: Properties) -> List[Token]:
+
+        if not p.replace_multiple_spaces:
+            return tokens
+
+        i = 0
+        while i < len(tokens):
+            token = tokens[i]
+
+            if isinstance(token, Whitespace) and len(token.value) > 1:
+                token.value = ' '
+
+            i += 1
+
+        return tokens
+
+    @staticmethod
+    def clean_spaces(tokens: List[Token], p: Properties) -> List[Token]:
+
+        if not p.clean_spaces_near_brackets:
+            return tokens
+
+        i = 0
+        while i < len(tokens):
+            token = tokens[i]
+
+            if token.value in ['(', '[']:
+                TokenUtils.remove_after_if_exists(tokens, i, Whitespace)
+            elif token.value in [')', ']']:
+                i += TokenUtils.remove_before_if_exists(tokens, i, Whitespace)
+
+            i += 1
+
+        return tokens
+
+    @staticmethod
+    def spaces_near_operators(tokens: List[Token], p: Properties) -> List[Token]:
+
+        if not p.spaces_near_operators:
+            return tokens
+
+        i = 0
+        while i < len(tokens):
+            token = tokens[i]
+
+            if isinstance(token, Operator):
+                if token.is_infix() or token.is_assignment():
+                    i += TokenUtils.add_or_replace_before(tokens, i, Whitespace(' '))
+                    TokenUtils.add_or_replace_after(tokens, i, Whitespace(' '))
+                elif token.is_prefix() or token.is_postfix():
+                    i += TokenUtils.remove_before_if_exists(tokens, i, Whitespace)
+                    TokenUtils.remove_after_if_exists(tokens, i, Whitespace)
+
+            i += 1
+
+        return tokens
+
+    @staticmethod
     def split_long_lines(tokens: List[Token], p: Properties) -> List[Token]:
 
         if not p.split_long_lines:
             return tokens
 
         i = 0
-        split = False
         split_index = None
         current_line_length = 0
+
+        brackets_split = False
+        brackets_start_column = None
+
         while i < len(tokens):
             token = tokens[i]
 
-            if token.value == '.' or token.value == '::':
+            if token.value in ['.', '::']:
                 split_index = i
+            elif token.value in [',']:
+                split_index = i + 1
+
+            elif token.value == '(':
+                brackets_split = True
+                brackets_start_column = current_line_length
+            elif token.value == ')':
+                brackets_split = False
+
             elif token.value == '\n':
                 current_line_length = 0
 
             if split_index is not None and current_line_length > p.preferred_line_length:
-                shift = TokenUtils.add_or_replace_before(tokens, split_index, LineBreak('\n'))
+                shift = 0
+                if brackets_split:
+                    shift += TokenUtils.add_or_replace_before(tokens, split_index,
+                                                              ImportantWhitespace(' ' * (brackets_start_column - 1)))
+
+                shift += TokenUtils.add_or_replace_before(tokens, split_index, LineBreak('\n'))
+
                 i += shift
                 current_line_length = 0
 

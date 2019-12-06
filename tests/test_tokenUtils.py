@@ -8,19 +8,19 @@ class TestTokenUtils(TestCase):
     def test_has_before_and_after(self):
         tokens = [Separator(''), Modifier(''), Keyword('')]
 
-        self.assertTrue(TokenUtils.has_before(1, Separator, tokens))
-        self.assertTrue(TokenUtils.has_after(1, Keyword, tokens))
-        self.assertTrue(TokenUtils.has_after(0, Modifier, tokens))
-        self.assertTrue(TokenUtils.has_before(2, Modifier, tokens))
+        self.assertTrue(TokenUtils.has_before(tokens, 1, Separator))
+        self.assertTrue(TokenUtils.has_after(tokens, 1, Keyword))
+        self.assertTrue(TokenUtils.has_after(tokens, 0, Modifier))
+        self.assertTrue(TokenUtils.has_before(tokens, 2, Modifier))
 
-        self.assertFalse(TokenUtils.has_after(0, Separator, tokens))
-        self.assertFalse(TokenUtils.has_before(1, Modifier, tokens))
+        self.assertFalse(TokenUtils.has_after(tokens, 0, Separator))
+        self.assertFalse(TokenUtils.has_before(tokens, 1, Modifier))
 
-        self.assertRaises(ValueError, lambda: TokenUtils.has_before(0, Separator, tokens))
-        self.assertRaises(ValueError, lambda: TokenUtils.has_after(2, Keyword, tokens))
+        self.assertRaises(ValueError, lambda: TokenUtils.has_before(tokens, 0, Separator))
+        self.assertRaises(ValueError, lambda: TokenUtils.has_after(tokens, 2, Keyword))
 
-        self.assertRaises(ValueError, lambda: TokenUtils.has_before(3, Keyword, tokens))
-        self.assertRaises(ValueError, lambda: TokenUtils.has_after(-1, Separator, tokens))
+        self.assertRaises(ValueError, lambda: TokenUtils.has_before(tokens, 3, Keyword))
+        self.assertRaises(ValueError, lambda: TokenUtils.has_after(tokens, -1, Separator))
 
     def test_add_before_if_not_present(self):
         tokens = [LineBreak('\n'), Whitespace(' '), Keyword('a')]

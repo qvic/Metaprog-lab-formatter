@@ -17,6 +17,10 @@ class Whitespace(Token):
     pass
 
 
+class ImportantWhitespace(Token):
+    pass
+
+
 class LineBreak(Token):
     pass
 
