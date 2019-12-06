@@ -31,6 +31,11 @@ class Lexer:
         self.i = 0
         self.j = 0
 
+    @staticmethod
+    def get_tokens(source: str):
+        lexer = Lexer(source)
+        return lexer.tokens
+
     def reset(self):
         self.i = 0
         self.j = 0

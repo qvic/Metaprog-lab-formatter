@@ -24,6 +24,10 @@ class SourceFile(Representable):
         with open(self.file_path, 'r') as file:
             return file.read()
 
+    def replace_all(self, text):
+        with open(self.file_path, 'w') as file:
+            return file.write(text)
+
     def __eq__(self, o: object) -> bool:
         if isinstance(o, SourceFile):
             return self.file_path == o.file_path

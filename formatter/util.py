@@ -72,7 +72,7 @@ class TokenUtils:
     def is_any_line_start(token):
         types = (Literal, Keyword, Identifier)
 
-        return isinstance(token, types)
+        return isinstance(token, types) or token.value.startswith('@')
 
     @staticmethod
     def format_comment(token, indent) -> Comment:

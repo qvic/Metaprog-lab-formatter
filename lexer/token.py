@@ -108,15 +108,9 @@ class Separator(Token):
 
 class Operator(Token):
     MAX_LEN = 4
-    VALUES = {'>>>=', '>>=', '<<=', '%=', '^=', '|=', '&=', '/=', '*=', '-=', '+=', '<<', '--', '++', '||', '&&', '!=',
+    VALUES = ('>>>=', '>>=', '<<=', '%=', '^=', '|=', '&=', '/=', '*=', '-=', '+=', '<<', '--', '++', '||', '&&', '!=',
               '>=', '<=', '==', '%', '^', '|', '&', '/', '*', '-', '+', ':', '?', '~', '!', '<', '>', '=', '...', '->',
-              '::'}
-
-    # '>>>' and '>>' are excluded so that >> becomes two tokens and >>> becomes
-    # three. This is done because we can not distinguish the operators >> and
-    # >>> from the closing of multipel type parameter/argument lists when
-    # lexing. The job of potentially recombining these symbols is left to the
-    # parser
+              '::')
 
     INFIX = ('||', '&&', '|', '^', '&', '==', '!=', '<', '>', '<=', '>=', '<<', '>>', '>>>', '+', '-', '*', '/', '%')
 

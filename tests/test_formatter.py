@@ -9,9 +9,4 @@ from util.util import SourceFile, Properties
 class TestFormatter(TestCase):
 
     def test_reformat_tokens(self):
-        lexer = Lexer((SourceFile('testdata/test_formatter_spaces.java').read_all()))
-        tokens = list(lexer.tokens)
-
-        # pprint(tokens)
-        # print()
-        print(Formatter.format_tokens(tokens, Properties('test.properties')))
+        print(Formatter.format_tokens(SourceFile('testdata/test.java').read_all(), Properties('test.properties')))

@@ -1,6 +1,7 @@
 from typing import List
 
 from formatter.util import TokenUtils
+from lexer.lexer import Lexer
 from lexer.token import *
 from util.util import Properties
 
@@ -8,14 +9,17 @@ from util.util import Properties
 class Formatter:
 
     @staticmethod
-    def format_tokens(tokens, p: Properties) -> str:
+    def format_tokens(file_content: str, p: Properties) -> str:
+        tokens = list(Lexer.get_tokens(file_content))
+
         formatters = (
             Formatter.clean_spaces,
             Formatter.replace_multiple_spaces,
             Formatter.spaces_near_operators,
             Formatter.space_after_comma,
-            Formatter.split_long_lines,
             Formatter.line_break_after_semicolon,
+            Formatter.format_block_expressions,
+            Formatter.split_long_lines,
             Formatter.curly_braces_formatter,
         )
 
@@ -42,7 +46,11 @@ class Formatter:
                 TokenUtils.add_or_replace_after(tokens, i, LineBreak('\n'))
 
             elif token.value == '}':
-                indent = max(indent - p.indent, 0)
+                indent = indent - p.indent
+                if indent < 0:
+                    print('Unexpected closing bracket at {}, set indent to 0.'.format(token.position))
+                    indent = 0
+
                 i += TokenUtils.add_or_replace_before(tokens, i, LineBreak('\n'), Whitespace(' ' * indent))
 
             elif skip_to_line_break:
@@ -180,6 +188,38 @@ class Formatter:
         return tokens
 
     @staticmethod
+    def format_block_expressions(tokens: List[Token], p: Properties) -> List[Token]:
+
+        i = 0
+        count_braces = 0
+        started_block = False
+        while i < len(tokens):
+            token = tokens[i]
+
+            if token.value in ['if', 'for', 'while']:
+                if p.replace_spaces_near_block_expression:
+                    TokenUtils.add_or_replace_after(tokens, i, Whitespace(' '))
+                started_block = True
+
+            elif started_block and token.value == '(':
+                count_braces += 1
+
+            elif started_block and token.value == ')':
+                count_braces -= 1
+                if count_braces == 0:
+                    if p.replace_spaces_near_block_expression:
+                        TokenUtils.add_or_replace_after(tokens, i, Whitespace(' '))
+                    started_block = False
+
+            elif started_block and count_braces > 0 and token.value == ';':
+                TokenUtils.remove_after_if_exists(tokens, i, LineBreak)
+                TokenUtils.add_or_replace_after(tokens, i, Whitespace(' '))
+
+            i += 1
+
+        return tokens
+
+    @staticmethod
     def split_long_lines(tokens: List[Token], p: Properties) -> List[Token]:
 
         if not p.split_long_lines:
@@ -195,6 +235,17 @@ class Formatter:
         while i < len(tokens):
             token = tokens[i]
 
+            if split_index is not None and current_line_length > p.preferred_line_length:
+                shift = 0
+                if brackets_split:
+                    shift += TokenUtils.add_or_replace_before(tokens, split_index,
+                                                              ImportantWhitespace(' ' * (brackets_start_column - 1)))
+
+                shift += TokenUtils.add_or_replace_before(tokens, split_index, LineBreak('\n'))
+
+                i += shift
+                current_line_length = brackets_start_column - 1
+
             if token.value in ['.', '::']:
                 split_index = i
             elif token.value in [',']:
@@ -207,17 +258,6 @@ class Formatter:
                 brackets_split = False
 
             elif token.value == '\n':
-                current_line_length = 0
-
-            if split_index is not None and current_line_length > p.preferred_line_length:
-                shift = 0
-                if brackets_split:
-                    shift += TokenUtils.add_or_replace_before(tokens, split_index,
-                                                              ImportantWhitespace(' ' * (brackets_start_column - 1)))
-
-                shift += TokenUtils.add_or_replace_before(tokens, split_index, LineBreak('\n'))
-
-                i += shift
                 current_line_length = 0
 
             # can't use position because of the possible modification
