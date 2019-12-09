@@ -124,6 +124,7 @@ class Formatter:
 
             if token.value == ',':
                 TokenUtils.add_or_replace_after(tokens, i, Whitespace(' '))
+                i += TokenUtils.remove_before_if_exists(tokens, i, Whitespace)
 
             i += 1
 
