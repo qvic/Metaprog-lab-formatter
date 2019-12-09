@@ -9,7 +9,7 @@ from util.util import Properties
 class Formatter:
 
     @staticmethod
-    def format_tokens(file_content: str, p: Properties) -> str:
+    def format(file_content: str, p: Properties) -> str:
         tokens = list(Lexer.get_tokens(file_content))
 
         formatters = (
@@ -244,7 +244,11 @@ class Formatter:
                 shift += TokenUtils.add_or_replace_before(tokens, split_index, LineBreak('\n'))
 
                 i += shift
-                current_line_length = brackets_start_column - 1
+
+                if brackets_split:
+                    current_line_length = brackets_start_column - 1
+                else:
+                    current_line_length = 0
 
             if token.value in ['.', '::']:
                 split_index = i
@@ -259,6 +263,7 @@ class Formatter:
 
             elif token.value == '\n':
                 current_line_length = 0
+                split_index = None
 
             # can't use position because of the possible modification
             current_line_length += len(token.value)

@@ -1,5 +1,6 @@
 import os
 from collections import namedtuple
+from typing import Dict
 
 
 class Helpers:
@@ -38,6 +39,11 @@ class SourceFile(Representable):
 
 
 class Properties(Representable):
+    converters = {
+        'int': int,
+        'float': float,
+        'bool': lambda s: s.lower() == 'true',
+    }
 
     def __init__(self, file_path: str, separator='=', comment_char='#'):
         with open(file_path, 'r') as file:
@@ -47,12 +53,13 @@ class Properties(Representable):
         return self.map.get(item)
 
     @staticmethod
+    def save_map_to_file(map: Dict, file_path: str):
+        with open(file_path, 'w') as file:
+            for key, value in map.items():
+                file.write('{}:{}={}\n'.format(key, type(value).__name__, value))
+
+    @staticmethod
     def _load_properties(file, separator: str, comment_char: str, type_separator=':'):
-        convertors = {
-            'int': int,
-            'float': float,
-            'bool': lambda s: s.lower() == 'true',
-        }
 
         properties = {}
         for line in file:
@@ -64,7 +71,7 @@ class Properties(Representable):
 
                 value_convertor = str
                 if len(splitted_key) > 1:
-                    value_convertor = convertors[splitted_key[-1]]
+                    value_convertor = Properties.converters[splitted_key[-1]]
 
                 value = value_convertor(separator.join(key_value[1:]).strip().strip('"'))
                 properties[type_separator.join(splitted_key[:-1])] = value
