@@ -22,6 +22,7 @@ for key, value in properties.map.items():
         entered_value = value
     else:
         entered_value = converter(raw_input)
+    print('---')
 
     new_properties_map[key] = entered_value
 
