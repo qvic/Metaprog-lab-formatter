@@ -74,7 +74,7 @@ class Formatter:
             elif token.value in ['.', '::']:
                 skip_to_line_break = True
                 i += TokenUtils.add_or_replace_before(tokens, i,
-                                                      Whitespace(' ' * (indent + p.method_chain_split_indent)))
+                                                      Whitespace(' ' * (indent + p.split_indent)))
 
             elif not p.preserve_comment_indent and isinstance(token, Comment):
                 tokens[i] = TokenUtils.format_comment(token, indent)
