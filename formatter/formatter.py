@@ -44,15 +44,16 @@ class Formatter:
             token = tokens[i]
 
             if token.value == '{':
-                if TokenUtils.has_before(tokens, i, Whitespace) and TokenUtils.has_before(tokens, i - 1, LineBreak) or \
-                        TokenUtils.has_before(tokens, i, LineBreak):
+                if (i > 2 and TokenUtils.has_before(tokens, i, Whitespace) and TokenUtils.has_before(tokens, i - 1,
+                                                                                                     LineBreak)) or \
+                        (i > 1 and TokenUtils.has_before(tokens, i, LineBreak)) or \
+                        i == 0:
                     i += TokenUtils.add_or_replace_before(tokens, i, Whitespace(' ' * indent))
                 else:
                     i += TokenUtils.add_or_replace_before(tokens, i, Whitespace(' '))
 
                 indent += p.indent
                 TokenUtils.add_or_replace_after(tokens, i, LineBreak('\n'))
-
 
             elif token.value == '}':
                 indent = indent - p.indent
@@ -323,22 +324,23 @@ class Formatter:
 
             if split_index is not None and current_line_length > p.preferred_line_length:
                 if brackets_split:
-                    current_line_length = brackets_start_column - 1
+                    current_line_length = brackets_start_column
                     i += TokenUtils.add_or_replace_before(tokens, split_index,
-                                                          Whitespace(' ' * (brackets_start_column)))
+                                                          Whitespace(' ' * brackets_start_column))
                 else:
                     current_line_length = line_start_column + p.split_indent
                     i += TokenUtils.add_or_replace_before(tokens, split_index,
                                                           Whitespace(' ' * (line_start_column + p.split_indent)))
 
                 i += TokenUtils.add_or_replace_before(tokens, split_index, LineBreak('\n'))
+                split_index = None
 
             if token.value in ['.', '::']:
                 split_index = i
             elif token.value in [',']:
                 split_index = i + 1
 
-            elif token.value == '(':
+            elif not brackets_split and token.value == '(':
                 brackets_split = True
                 brackets_start_column = current_line_length
             elif token.value == ')':
