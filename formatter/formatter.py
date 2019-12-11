@@ -171,6 +171,9 @@ class Formatter:
                 TokenUtils.remove_after_if_exists(tokens, i, Whitespace)
             elif token.value in [')', ']']:
                 i += TokenUtils.remove_before_if_exists(tokens, i, Whitespace)
+            elif token.value in ['.']:
+                TokenUtils.remove_after_if_exists(tokens, i, Whitespace)
+                i += TokenUtils.remove_before_if_exists(tokens, i, Whitespace)
 
             i += 1
 
@@ -212,17 +215,22 @@ class Formatter:
                     generic_state = False
 
             elif token.value in [';', '{', '}']:
+                if token.value == ';':
+                    TokenUtils.remove_before_if_exists(tokens, i, Whitespace)
+
                 after_modifier = False
                 after_return_type = False
                 after_name = False
                 parameter_brackets = 0
                 generic_brackets = 0
 
-            elif after_name and token.value == '(':
+            elif (after_name or after_return_type) and token.value == '(':
                 i += TokenUtils.remove_before_if_exists(tokens, i, Whitespace)
                 i += TokenUtils.remove_before_if_exists(tokens, i, LineBreak)
                 i += TokenUtils.remove_before_if_exists(tokens, i, Whitespace)
                 parameter_brackets += 1
+                after_name = False
+                after_return_type = False
 
             elif token.value == ')':
                 parameter_brackets -= 1
@@ -235,13 +243,14 @@ class Formatter:
 
             elif isinstance(token, Modifier) or token.value in ['class', 'enum', 'interface']:
                 TokenUtils.remove_after_if_exists(tokens, i, LineBreak)
+                TokenUtils.add_or_replace_after(tokens, i, Whitespace(' '))
                 after_modifier = True
 
             elif isinstance(token, (BasicType, Identifier)):
                 if not generic_state and after_modifier:
                     after_modifier = False
-                    TokenUtils.remove_after_if_exists(tokens, i, Whitespace)
                     TokenUtils.remove_after_if_exists(tokens, i, LineBreak)
+                    TokenUtils.add_or_replace_after(tokens, i, Whitespace(' '))
                     after_return_type = True
                 elif after_return_type and isinstance(token, Identifier):
                     after_return_type = False
@@ -333,6 +342,7 @@ class Formatter:
                                                           Whitespace(' ' * (line_start_column + p.split_indent)))
 
                 i += TokenUtils.add_or_replace_before(tokens, split_index, LineBreak('\n'))
+                current_line_length -= 1
                 split_index = None
 
             if token.value in ['.', '::']:
