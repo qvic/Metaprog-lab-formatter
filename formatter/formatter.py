@@ -210,8 +210,9 @@ class Formatter:
                 generic_brackets -= 1
                 i += TokenUtils.remove_before_if_exists(tokens, i, Whitespace)
                 if generic_brackets == 0:
-                    TokenUtils.remove_after_if_exists(tokens, i, Whitespace)
-                    TokenUtils.remove_after_if_exists(tokens, i, LineBreak)
+                    TokenUtils.add_or_replace_after(tokens, i, Whitespace(' '))
+                    if i < len(tokens) - 1:
+                        TokenUtils.remove_after_if_exists(tokens, i + 1, LineBreak)
                     generic_state = False
 
             elif token.value in [';', '{', '}']:
@@ -360,6 +361,8 @@ class Formatter:
                 line_start_column = len(token.value)
 
             elif isinstance(token, LineBreak):
+                if brackets_split:
+                    TokenUtils.add_or_replace_after(tokens, i, Whitespace(' ' * (brackets_start_column + 1)))
                 current_line_length = -len(token.value)
                 split_index = None
 
