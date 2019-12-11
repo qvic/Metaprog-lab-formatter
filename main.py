@@ -15,11 +15,13 @@ parser.add_argument('--output', type=str,
 args = parser.parse_args()
 
 file = SourceFile(args.input)
-formatted_file_content = Formatter.format(file.read_all(), Properties(args.properties))
+result = Formatter.format(file.read_all(), Properties(args.properties))
 
 if args.print:
-    print(formatted_file_content)
+    print('\n'.join(result.errors))
+    print(result.code)
 elif args.output is not None:
-    SourceFile(args.output).replace_all(formatted_file_content)
+    print('\n'.join(result.errors))
+    SourceFile(args.output).replace_all(result.code)
 else:
-    file.replace_all(formatted_file_content)
+    file.replace_all(result.code)

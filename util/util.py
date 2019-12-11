@@ -1,6 +1,6 @@
 import os
 from collections import namedtuple
-from typing import Dict
+from typing import Dict, List
 
 
 class Helpers:
@@ -77,3 +77,10 @@ class Properties(Representable):
                 properties[type_separator.join(splitted_key[:-1])] = value
 
         return properties
+
+
+class FormattingResult:
+
+    def __init__(self, code: str, errors: List[str]) -> None:
+        self.code = code
+        self.errors = errors

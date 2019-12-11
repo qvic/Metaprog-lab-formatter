@@ -3,20 +3,22 @@ from typing import List
 from formatter.util import TokenUtils
 from lexer.lexer import Lexer
 from lexer.token import *
-from util.util import Properties
+from util.util import Properties, FormattingResult
 
 
 class Formatter:
 
     @staticmethod
-    def format(file_content: str, p: Properties) -> str:
+    def format(file_content: str, p: Properties) -> FormattingResult:
         tokens = list(Lexer.get_tokens(file_content))
+        errors = []
 
         formatters = (
-            Formatter.clean_spaces,
+            Formatter.clear_spaces,
             Formatter.replace_multiple_spaces,
             Formatter.spaces_near_operators,
             Formatter.space_after_comma,
+            Formatter.clear_line_breaks,
             Formatter.line_break_after_semicolon,
             Formatter.format_block_expressions,
             Formatter.split_long_lines,
@@ -24,12 +26,12 @@ class Formatter:
         )
 
         for f in formatters:
-            tokens = f(tokens, p)
+            tokens = f(tokens, p, errors)
 
-        return ''.join(token.value for token in tokens)
+        return FormattingResult(''.join(token.value for token in tokens), errors)
 
     @staticmethod
-    def curly_braces_formatter(tokens: List[Token], p: Properties) -> List[Token]:
+    def curly_braces_formatter(tokens: List[Token], p: Properties, errors: List) -> List[Token]:
 
         if not p.format_curly_braces:
             return tokens
@@ -42,13 +44,20 @@ class Formatter:
             token = tokens[i]
 
             if token.value == '{':
+                if TokenUtils.has_before(tokens, i, Whitespace) and TokenUtils.has_before(tokens, i - 1, LineBreak) or \
+                        TokenUtils.has_before(tokens, i, LineBreak):
+                    i += TokenUtils.add_or_replace_before(tokens, i, Whitespace(' ' * indent))
+                else:
+                    i += TokenUtils.add_or_replace_before(tokens, i, Whitespace(' '))
+
                 indent += p.indent
                 TokenUtils.add_or_replace_after(tokens, i, LineBreak('\n'))
+
 
             elif token.value == '}':
                 indent = indent - p.indent
                 if indent < 0:
-                    print('Unexpected closing bracket at {}, set indent to 0.'.format(token.position))
+                    errors.append('Unexpected closing bracket at {}, set indent to 0.'.format(token.position))
                     indent = 0
 
                 i += TokenUtils.add_or_replace_before(tokens, i, LineBreak('\n'), Whitespace(' ' * indent))
@@ -78,7 +87,7 @@ class Formatter:
         return tokens
 
     @staticmethod
-    def spaces_within_keywords(tokens: List[Token], p: Properties) -> List[Token]:
+    def spaces_within_keywords(tokens: List[Token], p: Properties, errors: List) -> List[Token]:
 
         if not p.spaces_within_keywords:
             return tokens
@@ -96,7 +105,7 @@ class Formatter:
         return tokens
 
     @staticmethod
-    def line_break_after_semicolon(tokens: List[Token], p: Properties) -> List[Token]:
+    def line_break_after_semicolon(tokens: List[Token], p: Properties, errors: List) -> List[Token]:
 
         if not p.line_break_after_semicolon:
             return tokens
@@ -113,7 +122,7 @@ class Formatter:
         return tokens
 
     @staticmethod
-    def space_after_comma(tokens: List[Token], p: Properties) -> List[Token]:
+    def space_after_comma(tokens: List[Token], p: Properties, errors: List) -> List[Token]:
 
         if not p.space_after_comma:
             return tokens
@@ -131,7 +140,7 @@ class Formatter:
         return tokens
 
     @staticmethod
-    def replace_multiple_spaces(tokens: List[Token], p: Properties) -> List[Token]:
+    def replace_multiple_spaces(tokens: List[Token], p: Properties, errors: List) -> List[Token]:
 
         if not p.replace_multiple_spaces:
             return tokens
@@ -148,9 +157,9 @@ class Formatter:
         return tokens
 
     @staticmethod
-    def clean_spaces(tokens: List[Token], p: Properties) -> List[Token]:
+    def clear_spaces(tokens: List[Token], p: Properties, errors: List) -> List[Token]:
 
-        if not p.clean_spaces_near_brackets:
+        if not p.clear_spaces_near_brackets:
             return tokens
 
         i = 0
@@ -167,7 +176,80 @@ class Formatter:
         return tokens
 
     @staticmethod
-    def spaces_near_operators(tokens: List[Token], p: Properties) -> List[Token]:
+    def clear_line_breaks(tokens: List[Token], p: Properties, errors: List) -> List[Token]:
+
+        if not p.clear_line_breaks_in_signatures:
+            return tokens
+
+        i = 0
+
+        after_modifier = False
+        after_return_type = False
+        after_name = False
+        parameter_brackets = 0
+
+        generic_brackets = 0
+        generic_state = False
+        while i < len(tokens):
+            token = tokens[i]
+
+            if after_modifier and token.value == '<':
+                generic_brackets += 1
+                TokenUtils.remove_after_if_exists(tokens, i, Whitespace)
+                generic_state = True
+
+            elif generic_state and token.value == '<':
+                generic_brackets += 1
+                TokenUtils.remove_after_if_exists(tokens, i, Whitespace)
+
+            elif generic_state and token.value == '>':
+                generic_brackets -= 1
+                i += TokenUtils.remove_before_if_exists(tokens, i, Whitespace)
+                if generic_brackets == 0:
+                    TokenUtils.remove_after_if_exists(tokens, i, Whitespace)
+                    TokenUtils.remove_after_if_exists(tokens, i, LineBreak)
+                    generic_state = False
+
+            elif token.value in [';', '{', '}']:
+                after_modifier = False
+                after_return_type = False
+                after_name = False
+                parameter_brackets = 0
+                generic_brackets = 0
+
+            elif after_name and token.value == '(':
+                i += TokenUtils.remove_before_if_exists(tokens, i, Whitespace)
+                parameter_brackets += 1
+
+            elif token.value == ')':
+                parameter_brackets -= 1
+                if parameter_brackets == 0:
+                    TokenUtils.remove_after_if_exists(tokens, i, Whitespace)
+                    TokenUtils.remove_after_if_exists(tokens, i, LineBreak)
+                    after_name = False
+                elif parameter_brackets < 0:
+                    parameter_brackets = 0
+
+            elif isinstance(token, Modifier) or token.value in ['class', 'enum', 'interface']:
+                TokenUtils.remove_after_if_exists(tokens, i, LineBreak)
+                after_modifier = True
+
+            elif isinstance(token, (BasicType, Identifier)):
+                if not generic_state and after_modifier:
+                    after_modifier = False
+                    TokenUtils.remove_after_if_exists(tokens, i, LineBreak)
+                    after_return_type = True
+                elif after_return_type and isinstance(token, Identifier):
+                    after_return_type = False
+                    TokenUtils.remove_after_if_exists(tokens, i, LineBreak)
+                    after_name = True
+
+            i += 1
+
+        return tokens
+
+    @staticmethod
+    def spaces_near_operators(tokens: List[Token], p: Properties, errors: List) -> List[Token]:
 
         if not p.spaces_near_operators:
             return tokens
@@ -189,7 +271,7 @@ class Formatter:
         return tokens
 
     @staticmethod
-    def format_block_expressions(tokens: List[Token], p: Properties) -> List[Token]:
+    def format_block_expressions(tokens: List[Token], p: Properties, errors: List) -> List[Token]:
 
         i = 0
         count_braces = 0
@@ -221,7 +303,7 @@ class Formatter:
         return tokens
 
     @staticmethod
-    def split_long_lines(tokens: List[Token], p: Properties) -> List[Token]:
+    def split_long_lines(tokens: List[Token], p: Properties, errors: List) -> List[Token]:
 
         if not p.split_long_lines:
             return tokens

@@ -9,4 +9,6 @@ from util.util import SourceFile, Properties
 class TestFormatter(TestCase):
 
     def test_reformat_tokens(self):
-        print(Formatter.format(SourceFile('testdata/test.java').read_all(), Properties('test.properties')))
+        result = Formatter.format(SourceFile('testdata/test.java').read_all(), Properties('test.properties'))
+        print('\n'.join(result.errors))
+        print(result.code)
