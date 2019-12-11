@@ -21,8 +21,8 @@ class Formatter:
             Formatter.clear_line_breaks,
             Formatter.line_break_after_semicolon,
             Formatter.format_block_expressions,
-            Formatter.split_long_lines,
             Formatter.curly_braces_formatter,
+            Formatter.split_long_lines,
         )
 
         for f in formatters:
@@ -219,6 +219,8 @@ class Formatter:
 
             elif after_name and token.value == '(':
                 i += TokenUtils.remove_before_if_exists(tokens, i, Whitespace)
+                i += TokenUtils.remove_before_if_exists(tokens, i, LineBreak)
+                i += TokenUtils.remove_before_if_exists(tokens, i, Whitespace)
                 parameter_brackets += 1
 
             elif token.value == ')':
@@ -237,11 +239,11 @@ class Formatter:
             elif isinstance(token, (BasicType, Identifier)):
                 if not generic_state and after_modifier:
                     after_modifier = False
+                    TokenUtils.remove_after_if_exists(tokens, i, Whitespace)
                     TokenUtils.remove_after_if_exists(tokens, i, LineBreak)
                     after_return_type = True
                 elif after_return_type and isinstance(token, Identifier):
                     after_return_type = False
-                    TokenUtils.remove_after_if_exists(tokens, i, LineBreak)
                     after_name = True
 
             i += 1
@@ -311,6 +313,7 @@ class Formatter:
         i = 0
         split_index = None
         current_line_length = 0
+        line_start_column = 0
 
         brackets_split = False
         brackets_start_column = None
@@ -319,19 +322,16 @@ class Formatter:
             token = tokens[i]
 
             if split_index is not None and current_line_length > p.preferred_line_length:
-                shift = 0
-                if brackets_split:
-                    shift += TokenUtils.add_or_replace_before(tokens, split_index,
-                                                              ImportantWhitespace(' ' * (brackets_start_column - 1)))
-
-                shift += TokenUtils.add_or_replace_before(tokens, split_index, LineBreak('\n'))
-
-                i += shift
-
                 if brackets_split:
                     current_line_length = brackets_start_column - 1
+                    i += TokenUtils.add_or_replace_before(tokens, split_index,
+                                                          Whitespace(' ' * (brackets_start_column)))
                 else:
-                    current_line_length = 0
+                    current_line_length = line_start_column + p.split_indent
+                    i += TokenUtils.add_or_replace_before(tokens, split_index,
+                                                          Whitespace(' ' * (line_start_column + p.split_indent)))
+
+                i += TokenUtils.add_or_replace_before(tokens, split_index, LineBreak('\n'))
 
             if token.value in ['.', '::']:
                 split_index = i
@@ -344,11 +344,13 @@ class Formatter:
             elif token.value == ')':
                 brackets_split = False
 
-            elif token.value == '\n':
-                current_line_length = 0
+            elif current_line_length == 0 and isinstance(token, Whitespace):
+                line_start_column = len(token.value)
+
+            elif isinstance(token, LineBreak):
+                current_line_length = -len(token.value)
                 split_index = None
 
-            # can't use position because of the possible modification
             current_line_length += len(token.value)
             i += 1
 

@@ -1,8 +1,6 @@
-from pprint import pprint
 from unittest import TestCase
 
 from formatter.formatter import Formatter
-from lexer.lexer import Lexer
 from util.util import SourceFile, Properties
 
 
