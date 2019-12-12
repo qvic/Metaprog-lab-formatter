@@ -18,9 +18,9 @@ class Formatter:
             Formatter.replace_multiple_spaces,
             Formatter.spaces_near_operators,
             Formatter.space_after_comma,
+            Formatter.format_block_expressions,
             Formatter.clear_line_breaks,
             Formatter.line_break_after_semicolon,
-            Formatter.format_block_expressions,
             Formatter.curly_braces_formatter,
             Formatter.split_long_lines,
         )
@@ -116,7 +116,10 @@ class Formatter:
             token = tokens[i]
 
             if token.value == ';':
-                TokenUtils.add_or_replace_after(tokens, i, LineBreak('\n'))
+                if TokenUtils.has_after(tokens, i, value=';'):
+                    errors.append('Double semicolon at {}.'.format(token.position))
+                else:
+                    TokenUtils.add_or_replace_after(tokens, i, LineBreak('\n'))
 
             i += 1
 
@@ -194,17 +197,21 @@ class Formatter:
 
         generic_brackets = 0
         generic_state = False
+
         while i < len(tokens):
             token = tokens[i]
 
-            if after_modifier and token.value == '<':
+            if generic_state and token.value == '<':
                 generic_brackets += 1
                 TokenUtils.remove_after_if_exists(tokens, i, Whitespace)
-                generic_state = True
+                i += TokenUtils.remove_before_if_exists(tokens, i, Whitespace)
 
-            elif generic_state and token.value == '<':
+            elif (after_return_type or after_modifier or parameter_brackets > 0) and token.value == '<':
                 generic_brackets += 1
                 TokenUtils.remove_after_if_exists(tokens, i, Whitespace)
+                if after_return_type or parameter_brackets > 0:
+                    i += TokenUtils.remove_before_if_exists(tokens, i, Whitespace)
+                generic_state = True
 
             elif generic_state and token.value == '>':
                 generic_brackets -= 1
@@ -243,6 +250,7 @@ class Formatter:
                     parameter_brackets = 0
 
             elif isinstance(token, Modifier) or token.value in ['class', 'enum', 'interface']:
+                TokenUtils.remove_after_if_exists(tokens, i, Whitespace)
                 TokenUtils.remove_after_if_exists(tokens, i, LineBreak)
                 TokenUtils.add_or_replace_after(tokens, i, Whitespace(' '))
                 after_modifier = True
