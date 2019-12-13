@@ -19,8 +19,8 @@ class Formatter:
             Formatter.spaces_near_operators,
             Formatter.space_after_comma,
             Formatter.clear_line_breaks,
-            Formatter.format_block_expressions,
             Formatter.line_break_after_semicolon,
+            Formatter.format_block_expressions,
             Formatter.curly_braces_formatter,
             Formatter.split_long_lines,
             Formatter.remove_redundant_line_breaks,
@@ -352,9 +352,11 @@ class Formatter:
                 else:
                     i += TokenUtils.remove_before_if_exists(tokens, i, Whitespace)
 
+            elif switch_block and token.value in ['case', 'default']:
+                case_block = False
+
             elif switch_block and token.value == ':':
                 i += TokenUtils.remove_before_if_exists(tokens, i, Whitespace)
-                TokenUtils.add_or_replace_after(tokens, i, ImportantWhitespace(' ' * p.switch_case_indent))
                 TokenUtils.add_or_replace_after(tokens, i, LineBreak('\n'))
                 case_block = True
 
@@ -374,17 +376,13 @@ class Formatter:
                 TokenUtils.remove_after_if_exists(tokens, i, LineBreak)
                 TokenUtils.add_or_replace_after(tokens, i, Whitespace(' '))
 
-            elif case_block and token.value == ';':
-                TokenUtils.remove_after_if_exists(tokens, i, Whitespace)
-                while TokenUtils.has_after(tokens, i, LineBreak):
-                    TokenUtils.remove_after_if_exists(tokens, i, LineBreak)
-                    TokenUtils.remove_after_if_exists(tokens, i, Whitespace)
-                if not (TokenUtils.has_after(tokens, i, value='case') or TokenUtils.has_after(tokens, i,
-                                                                                              value='default')):
-                    TokenUtils.add_or_replace_after(tokens, i, ImportantWhitespace(' ' * p.switch_case_indent))
+            elif case_block and TokenUtils.is_any_line_start(token):
+                i += TokenUtils.remove_before_if_exists(tokens, i, Whitespace)
+                i += TokenUtils.add_or_replace_before(tokens, i, ImportantWhitespace(' ' * p.switch_case_indent))
 
             elif switch_block and token.value == '}':
                 switch_block = False
+                case_block = False
 
             i += 1
 
