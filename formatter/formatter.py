@@ -18,8 +18,8 @@ class Formatter:
             Formatter.replace_multiple_spaces,
             Formatter.spaces_near_operators,
             Formatter.space_after_comma,
-            Formatter.format_block_expressions,
             Formatter.clear_line_breaks,
+            Formatter.format_block_expressions,
             Formatter.line_break_after_semicolon,
             Formatter.curly_braces_formatter,
             Formatter.split_long_lines,
@@ -303,15 +303,21 @@ class Formatter:
         i = 0
         count_braces = 0
         started_block = False
+        switch_block = False
+        case_block = False
+
         while i < len(tokens):
             token = tokens[i]
 
-            if token.value in ['if', 'for', 'while']:
+            if token.value in ['if', 'for', 'while', 'switch']:
                 if p.put_spaces_near_block_expression:
                     TokenUtils.add_or_replace_after(tokens, i, Whitespace(' '))
                 else:
                     TokenUtils.remove_after_if_exists(tokens, i, Whitespace)
                 started_block = True
+
+                if token.value == 'switch':
+                    switch_block = True
 
             elif token.value in ['else']:
                 TokenUtils.add_or_replace_after(tokens, i, Whitespace(' '))
@@ -319,6 +325,12 @@ class Formatter:
                     i += TokenUtils.add_or_replace_before(tokens, i, Whitespace(' '))
                 else:
                     i += TokenUtils.remove_before_if_exists(tokens, i, Whitespace)
+
+            elif switch_block and token.value == ':':
+                i += TokenUtils.remove_before_if_exists(tokens, i, Whitespace)
+                TokenUtils.add_or_replace_after(tokens, i, ImportantWhitespace(' ' * p.switch_case_indent))
+                TokenUtils.add_or_replace_after(tokens, i, LineBreak('\n'))
+                case_block = True
 
             elif started_block and token.value == '(':
                 count_braces += 1
@@ -335,6 +347,18 @@ class Formatter:
             elif started_block and count_braces > 0 and token.value == ';':
                 TokenUtils.remove_after_if_exists(tokens, i, LineBreak)
                 TokenUtils.add_or_replace_after(tokens, i, Whitespace(' '))
+
+            elif case_block and token.value == ';':
+                TokenUtils.remove_after_if_exists(tokens, i, Whitespace)
+                while TokenUtils.has_after(tokens, i, LineBreak):
+                    TokenUtils.remove_after_if_exists(tokens, i, LineBreak)
+                    TokenUtils.remove_after_if_exists(tokens, i, Whitespace)
+                if not (TokenUtils.has_after(tokens, i, value='case') or TokenUtils.has_after(tokens, i,
+                                                                                              value='default')):
+                    TokenUtils.add_or_replace_after(tokens, i, ImportantWhitespace(' ' * p.switch_case_indent))
+
+            elif switch_block and token.value == '}':
+                switch_block = False
 
             i += 1
 
