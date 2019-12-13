@@ -61,6 +61,7 @@ class Formatter:
                     errors.append('Unexpected closing bracket at {}, set indent to 0.'.format(token.position))
                     indent = 0
 
+                # if i < len(tokens) - 1 and not TokenUtils.has_after(tokens, i, value='else'):
                 i += TokenUtils.add_or_replace_before(tokens, i, LineBreak('\n'), Whitespace(' ' * indent))
 
             elif skip_to_line_break:
@@ -69,7 +70,12 @@ class Formatter:
 
             elif TokenUtils.is_any_line_start(token):
                 skip_to_line_break = True
-                i += TokenUtils.add_or_replace_before(tokens, i, Whitespace(' ' * indent))
+                if token.value in ['else']:
+                    i += TokenUtils.remove_before_if_exists(tokens, i, Whitespace)
+                    i += TokenUtils.remove_before_if_exists(tokens, i, LineBreak)
+                    i += TokenUtils.add_or_replace_before(tokens, i, Whitespace(' '))
+                else:
+                    i += TokenUtils.add_or_replace_before(tokens, i, Whitespace(' ' * indent))
 
             elif token.value in ['.', '::']:
                 skip_to_line_break = True
@@ -301,9 +307,18 @@ class Formatter:
             token = tokens[i]
 
             if token.value in ['if', 'for', 'while']:
-                if p.replace_spaces_near_block_expression:
+                if p.put_spaces_near_block_expression:
                     TokenUtils.add_or_replace_after(tokens, i, Whitespace(' '))
+                else:
+                    TokenUtils.remove_after_if_exists(tokens, i, Whitespace)
                 started_block = True
+
+            elif token.value in ['else']:
+                TokenUtils.add_or_replace_after(tokens, i, Whitespace(' '))
+                if p.put_spaces_near_block_expression:
+                    i += TokenUtils.add_or_replace_before(tokens, i, Whitespace(' '))
+                else:
+                    i += TokenUtils.remove_before_if_exists(tokens, i, Whitespace)
 
             elif started_block and token.value == '(':
                 count_braces += 1
@@ -311,8 +326,10 @@ class Formatter:
             elif started_block and token.value == ')':
                 count_braces -= 1
                 if count_braces == 0:
-                    if p.replace_spaces_near_block_expression:
+                    if p.put_spaces_near_block_expression:
                         TokenUtils.add_or_replace_after(tokens, i, Whitespace(' '))
+                    else:
+                        TokenUtils.remove_after_if_exists(tokens, i, Whitespace)
                     started_block = False
 
             elif started_block and count_braces > 0 and token.value == ';':
