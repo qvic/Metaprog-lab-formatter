@@ -23,6 +23,7 @@ class Formatter:
             Formatter.line_break_after_semicolon,
             Formatter.curly_braces_formatter,
             Formatter.split_long_lines,
+            Formatter.remove_redundant_line_breaks,
         )
 
         for f in formatters:
@@ -106,6 +107,31 @@ class Formatter:
             if isinstance(token, Keyword):
                 shift = TokenUtils.add_or_replace_before(tokens, i, Whitespace(' '))
                 i += shift
+
+            i += 1
+
+        return tokens
+
+    @staticmethod
+    def remove_redundant_line_breaks(tokens: List[Token], p: Properties, errors: List) -> List[Token]:
+
+        if not p.remove_redundant_line_breaks:
+            return tokens
+
+        i = 0
+        line_break_count = 0
+        while i < len(tokens):
+            token = tokens[i]
+
+            if isinstance(token, LineBreak):
+                line_break_count += 1
+            elif not isinstance(token, Whitespace):
+                line_break_count = 0
+
+            while line_break_count > 2:
+                i += TokenUtils.remove_before_if_exists(tokens, i, Whitespace)
+                i += TokenUtils.remove_before_if_exists(tokens, i, LineBreak)
+                line_break_count -= 1
 
             i += 1
 
