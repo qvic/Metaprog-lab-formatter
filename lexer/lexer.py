@@ -212,6 +212,9 @@ class Lexer:
             self.j = self.length
             return
 
+        if terminator == '\n':
+            i -= 1
+
         self.j = i
 
     def read_decimal_float_or_integer(self):

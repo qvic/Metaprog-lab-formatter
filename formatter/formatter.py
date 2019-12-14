@@ -69,7 +69,7 @@ class Formatter:
                 if token.value == '\n':
                     skip_to_line_break = False
 
-            elif TokenUtils.is_any_line_start(token):
+            elif TokenUtils.is_any_line_start(token) or (isinstance(token, Comment) and token.value.startswith('//')):
                 skip_to_line_break = True
                 if token.value in ['else', 'catch']:
                     i += TokenUtils.remove_before_if_exists(tokens, i, Whitespace)
@@ -83,7 +83,7 @@ class Formatter:
                 i += TokenUtils.add_or_replace_before(tokens, i,
                                                       Whitespace(' ' * (indent + p.split_indent)))
 
-            elif not p.preserve_comment_indent and isinstance(token, Comment):
+            elif not p.preserve_comment_indent and isinstance(token, Comment) and token.value.startswith('/*'):
                 tokens[i] = TokenUtils.format_comment(token, indent)
                 i += TokenUtils.add_or_replace_before(tokens, i, Whitespace(' ' * indent))
 
