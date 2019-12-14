@@ -71,7 +71,7 @@ class Formatter:
 
             elif TokenUtils.is_any_line_start(token) or (isinstance(token, Comment) and token.value.startswith('//')):
                 skip_to_line_break = True
-                if token.value in ['else', 'catch']:
+                if token.value in ['else', 'catch', 'finally']:
                     i += TokenUtils.remove_before_if_exists(tokens, i, Whitespace)
                     i += TokenUtils.remove_before_if_exists(tokens, i, LineBreak)
                     i += TokenUtils.add_or_replace_before(tokens, i, Whitespace(' '))
