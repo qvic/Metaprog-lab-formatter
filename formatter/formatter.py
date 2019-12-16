@@ -150,7 +150,8 @@ class Formatter:
             if token.value == ';':
                 if TokenUtils.has_after(tokens, i, value=';'):
                     errors.append('Double semicolon at {}.'.format(token.position))
-                else:
+                elif not (i < len(tokens) - 2 and TokenUtils.has_after(tokens, i, Whitespace) and
+                          TokenUtils.has_after(tokens, i + 1, Comment)):
                     TokenUtils.add_or_replace_after(tokens, i, LineBreak('\n'))
 
             i += 1
