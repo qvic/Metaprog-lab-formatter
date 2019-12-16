@@ -62,7 +62,6 @@ class Formatter:
                     errors.append('Unexpected closing bracket at {}, set indent to 0.'.format(token.position))
                     indent = 0
 
-                # if i < len(tokens) - 1 and not TokenUtils.has_after(tokens, i, value='else'):
                 i += TokenUtils.add_or_replace_before(tokens, i, LineBreak('\n'), Whitespace(' ' * indent))
 
             elif skip_to_line_break:
@@ -91,6 +90,9 @@ class Formatter:
                     TokenUtils.add_or_replace_after(tokens, i, LineBreak('\n'))
 
             i += 1
+
+        if indent > 0:
+            errors.append('Expected closing bracket at the end.')
 
         return tokens
 
